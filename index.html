@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Bengaluru Stops Over Time</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 90vh;
+        }
+
+        #slider-container {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            right: 50px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="slider-container">
+        <div style="margin-bottom: 10px;">Year:
+            <input id="year-slider" type="range" min="2014" max="2025" step="1" value="2014" />
+            <span id="year-label" style="padding-bottom: 5px;">2014</span>
+        </div>
+        <div>
+            <div id="red"
+                style="height: 15px;width: 15px; background-color: red; border-radius: 50%;display: inline-block;margin-right: 10px;">
+            </div>Bus Stops
+            <input type="checkbox" id="redcheck" checked>
+            <div id="blue"
+            style="height: 15px;width: 15px; background-color: blue; border-radius: 50%;display: inline-block;margin-right: 10px;">
+        </div>Metro Stops
+        <input type="checkbox"  id="bluecheck" checked>
+        <div id="yellow"
+        style="height: 15px;width: 15px; background-color: yellow; border-radius: 50%;display: inline-block;margin-right: 10px;">
+    </div>Metro Stops Under Construction
+    <input type="checkbox"  id="yellowcheck" checked>
+        </div>
+    </div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js">
+    </script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([12.97, 77.59], 11);
+        let redcheck=document.getElementById("redcheck");
+        let bluecheck=document.getElementById("bluecheck");
+        let yellowcheck=document.getElementById("yellowcheck");
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Preload empty layer variable
+        let currentLayer = null;
+
+        // Function to load GeoJSON for a given year
+        function loadYear(year) {
+            const url = `data_${year}.geojson`;
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    // Remove previous layer
+                    if (currentLayer) {
+                        map.removeLayer(currentLayer);
+                    }
+                    // Add new layer
+                    console.log(data);
+
+                    //if(data.properties.network=="namma metro"){
+
+                    currentLayer = L.geoJson(data, {
+                        pointToLayer: (feature, latlng) => {
+                            console.log(feature);
+
+                            if ((feature.properties.network == "Namma Metro" || feature.properties.station == "subway") && feature.properties.construction != "station" && bluecheck.checked)
+                                return L.circleMarker(latlng, { radius: 2, color: 'blue' });
+                            else if (feature.properties.construction == "station" && yellowcheck.checked)
+                                return L.circleMarker(latlng, { radius: 2, color: 'yellow' });
+                            else if (feature.properties.highway == "bus_stop"  && redcheck.checked)
+                                return L.circleMarker(latlng, { radius: 2, color: 'red' });
+                        }
+                    }).addTo(map);
+                    //}
+                    //   else{
+                    //     currentLayer = L.geoJson(data, {
+                    //     pointToLayer: (feature, latlng) =>{
+
+                    //       return L.circleMarker(latlng, { radius: 2, color: 'red' })}
+                    //   }).addTo(map);
+                    //   }
+                })
+                .catch(err => console.error('GeoJSON load error:', err));
+        }
+
+        // Handle slider events
+        const slider = document.getElementById('year-slider');
+        const label = document.getElementById('year-label');
+        slider.addEventListener('input', () => {
+            const year = slider.value;
+            label.textContent = year;
+            loadYear(year);
+        });
+
+        // Initial load
+        loadYear(slider.value);
+    </script>
+</body>
+
+</html>
