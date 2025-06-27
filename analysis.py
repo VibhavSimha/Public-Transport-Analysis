@@ -153,6 +153,7 @@ class ComprehensiveMetroAnalyzer:
         
         return sorted(metro_feeder_needs, key=lambda x: x['distance_to_nearest_bus_stop'], reverse=True)[:top_n]
 
+
 @st.cache_data
 def run_full_analysis():
     analyzer = ComprehensiveMetroAnalyzer()
@@ -160,7 +161,6 @@ def run_full_analysis():
     history_years = list(range(2017, 2026))
     future_years = list(range(2026, 2036))
     
-    # --- FIX: No argument passed to instance method ---
     G = analyzer.build_road_graph()
     snaps = analyzer.load_historical('.', history_years + [2025])
     ts = analyzer.build_time_series(G, snaps, history_years)
@@ -199,10 +199,9 @@ def run_full_analysis():
     metro_2031_coords = [node for node, _ in all_predictions_data.get(2031, [])]
     farthest_metro_2031 = analyzer.analyze_metro_feeder_needs(metro_2031_coords, bus_stops_coords, top_n=100)
     
-    # --- FIX: Return the correct number of values ---
-    return preds, lines, future_years, farthest_metro_2025, farthest_metro_2031, all_predictions_data
+    return preds, lines, future_years, farthest_metro_2025, farthest_metro_2031, all_predictions_data, snaps
 
-def create_dashboard(preds, lines, future_years, farthest_metro_2025, farthest_metro_2031, all_predictions_data):
+def create_dashboard(preds, lines, future_years, farthest_metro_2025, farthest_metro_2031, all_predictions_data, snaps):
     st.title("Bengaluru Metro & Feeder Integration Analysis")
     st.header("Identifying Metro Stations Most in Need of Feeder Connectivity")
     
@@ -213,8 +212,21 @@ def create_dashboard(preds, lines, future_years, farthest_metro_2025, farthest_m
         
         m = folium.Map(location=[12.9716, 77.5946], zoom_start=10)
         
-        # Consolidate all predicted stations into one layer for clarity
-        predicted_layer = folium.FeatureGroup(name="Consolidated Predicted Network (2026-2035)", show=True)
+        # Layer for the Consolidated 2025-2035 Network
+        consolidated_layer = folium.FeatureGroup(name="Consolidated Network (2025-2035)", show=True)
+        
+        # Add 2025 metro stations to this layer
+        if 2025 in snaps:
+            for station in snaps[2025]:
+                folium.CircleMarker(
+                    location=station,
+                    radius=5,
+                    color='blue',
+                    fill=True,
+                    popup="Existing 2025 Station"
+                ).add_to(consolidated_layer)
+        
+        # Add all predicted stations (2026-2035) to this layer
         for year_preds in preds:
             for node, prob in year_preds:
                 folium.CircleMarker(
@@ -223,8 +235,9 @@ def create_dashboard(preds, lines, future_years, farthest_metro_2025, farthest_m
                     color='red',
                     fill=True,
                     popup=f"Predicted Station: Prob {prob:.3f}"
-                ).add_to(predicted_layer)
-        predicted_layer.add_to(m)
+                ).add_to(consolidated_layer)
+        
+        consolidated_layer.add_to(m)
 
         # Layer for 2025 Metro Stations needing feeders (Orange)
         if farthest_metro_2025:
@@ -299,5 +312,8 @@ def create_dashboard(preds, lines, future_years, farthest_metro_2025, farthest_m
             st.pyplot(fig2)
 
 if __name__ == '__main__':
-    preds_data, lines_data, future_years_data, farthest_metro_2025_data, farthest_metro_2031_data, all_predictions_data = run_full_analysis()
-    create_dashboard(preds_data, lines_data, future_years_data, farthest_metro_2025_data, farthest_metro_2031_data, all_predictions_data)
+    # --- FIX: Unpack the correct number of values ---
+    preds_data, lines_data, future_years_data, farthest_metro_2025_data, farthest_metro_2031_data, all_predictions_data, snaps_data = run_full_analysis()
+    
+    # --- FIX: Pass the correct number of arguments to the dashboard function ---
+    create_dashboard(preds_data, lines_data, future_years_data, farthest_metro_2025_data, farthest_metro_2031_data, all_predictions_data, snaps_data)
